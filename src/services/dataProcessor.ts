@@ -133,7 +133,7 @@ export const processCSV = (csvContent: string, reportType: ReportType): Record<C
   // Build a map of Dealer Name -> Lines
   const rawDealerMap: Record<string, string[][]> = {};
 
-  lines.forEach((line) => {
+  for (const line of lines) {
     const row = parseCSVLine(line);
     
     // Check if it's a data row. Column 0 should be a dealer name.
@@ -146,20 +146,20 @@ export const processCSV = (csvContent: string, reportType: ReportType): Record<C
         rawDealerMap[dealerName].push(row);
       }
     }
-  });
+  }
 
   // Process each city
-  Object.values(City).forEach((city) => {
+  for (const city of Object.values(City)) {
     const dealerNames = DEALERS_BY_CITY[city];
     
-    dealerNames.forEach((dName) => {
+    for (const dName of dealerNames) {
       const rows = rawDealerMap[dName];
-      if (!rows) return; // Dealer not found in CSV
+      if (!rows) continue; // Dealer not found in CSV
 
       let summary: ManagerData | null = null;
       const managers: ManagerData[] = [];
 
-      rows.forEach((row) => {
+      for (const row of rows) {
         const managerName = row[1]?.trim();
         const failures = getFailures(row, metricsConfig);
         const metricValues = parseMetricsForRow(row, metricsConfig);
@@ -178,9 +178,10 @@ export const processCSV = (csvContent: string, reportType: ReportType): Record<C
                  managers.push(data);
             }
         }
-      });
+      }
 
       if (summary) {
+        // TypeScript now correctly infers that summary is ManagerData and not null
         result[city].push({
           name: dName,
           summary: summary,
@@ -190,8 +191,8 @@ export const processCSV = (csvContent: string, reportType: ReportType): Record<C
           analysis: generateDealerAnalysis(dName, summary.failedMetrics, managers, categoriesConfig),
         });
       }
-    });
-  });
+    }
+  }
 
   return result;
 };
