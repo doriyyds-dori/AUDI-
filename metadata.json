@@ -1,0 +1,5 @@
+{
+  "name": "Dealer Performance Report Generator",
+  "description": "A tool to visualize and export dealer performance metrics based on CSV data for Chengdu and Xi'an regions.",
+  "requestFramePermissions": []
+}
