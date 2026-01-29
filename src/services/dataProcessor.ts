@@ -113,8 +113,8 @@ const generateDealerAnalysis = (name: string, dealerFailures: FailedMetric[], ma
   });
 
   if (managerIssues.length > 0) {
-    // Add a newline for better readability if formatted with whitespace-pre-line
-    fullText += `\n需重点关注管家：${managerIssues.join('，')}。`;
+    // Add newlines to separate each manager for better readability and clear layout
+    fullText += `\n需重点关注管家：\n${managerIssues.join('；\n')}。`;
   }
 
   return fullText;
@@ -181,7 +181,6 @@ export const processCSV = (csvContent: string, reportType: ReportType): Record<C
       }
 
       if (summary) {
-        // TypeScript now correctly infers that summary is ManagerData and not null
         result[city].push({
           name: dName,
           summary: summary,
