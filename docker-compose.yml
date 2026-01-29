@@ -1,0 +1,8 @@
+version: '3'
+services:
+  audi-report-app:
+    build: .
+    container_name: audi-report-app
+    restart: always
+    ports:
+      - "8880:80"  # 将群晖的 8880 端口映射到容器的 80 端口
