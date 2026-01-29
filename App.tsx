@@ -81,29 +81,12 @@ const App: React.FC = () => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (evt) => {
-        const arrayBuffer = evt.target?.result as ArrayBuffer;
-        if (arrayBuffer) {
-          try {
-            // 1. Try UTF-8 first with fatal: true. This will throw error if invalid chars are found.
-            const decoder = new TextDecoder('utf-8', { fatal: true });
-            const text = decoder.decode(arrayBuffer);
-            setCurrentCsv(text);
-          } catch (e) {
-            // 2. If UTF-8 fails, fallback to GBK (common for Excel CSVs in China)
-            console.warn("UTF-8 decoding failed, trying GBK...");
-            try {
-              const decoder = new TextDecoder('gbk');
-              const text = decoder.decode(arrayBuffer);
-              setCurrentCsv(text);
-            } catch (gbkError) {
-              console.error("Decoding error", gbkError);
-              alert("无法识别文件编码，请确保文件是 UTF-8 或 GBK 格式。");
-            }
-          }
+        const text = evt.target?.result as string;
+        if (text) {
+          setCurrentCsv(text);
         }
       };
-      // Read as ArrayBuffer allows us to use TextDecoder with different encodings
-      reader.readAsArrayBuffer(file);
+      reader.readAsText(file);
     }
   };
 
