@@ -33,20 +33,64 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const typeLabel = reportType === 'performance' ? '考核数据' : '观察数据';
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
-  const handleCopy = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+  // Robust copy function that works in both HTTPS and HTTP
+  const copyToClipboard = async (text: string): Promise<boolean> => {
+    // 1. Try Modern API (HTTPS / Localhost)
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (err) {
+      console.warn('Clipboard API failed, trying fallback...', err);
+    }
+
+    // 2. Fallback for HTTP (Legacy method)
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      // Ensure it's not visible but part of DOM
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      textArea.style.opacity = "0";
+      
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return successful;
+    } catch (err) {
+      console.error('Fallback copy failed', err);
+      return false;
+    }
   };
 
-  const handleCopyAll = () => {
+  const handleCopy = async (text: string, index: number) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } else {
+      alert("复制失败，请尝试手动复制。");
+    }
+  };
+
+  const handleCopyAll = async () => {
     const allContent = data.map(d => d.analysis).join('\n\n'); // Double newline between dealers
     // Include the title when copying all
     const fullText = `${title}\n\n${allContent}`;
     
-    navigator.clipboard.writeText(fullText);
-    setCopiedIndex(-1); // -1 represents 'All'
-    setTimeout(() => setCopiedIndex(null), 2000);
+    const success = await copyToClipboard(fullText);
+    if (success) {
+      setCopiedIndex(-1); // -1 represents 'All'
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } else {
+      alert("复制失败，请尝试手动复制。");
+    }
   };
 
   if (data.length === 0) return null;
