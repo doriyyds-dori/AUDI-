@@ -2,9 +2,11 @@ import { PERFORMANCE_METRICS, OBSERVATION_METRICS, PERFORMANCE_CATEGORIES, OBSER
 import { DealerData, FailedMetric, ManagerData, MetricConfig, ReportType, AttributionMap } from '../types';
 
 const parseValue = (value: string | undefined): number | null => {
-  if (!value || value.trim() === '-' || value.trim() === '') return null;
-  const clean = value.replace(/,/g, '').replace(/%/g, '');
-  const num = parseFloat(clean);
+  if (!value) return null;
+  // 移除所有可能干扰数字解析的非数值符号（保留负号和小数点）
+  const cleanStr = value.trim().replace(/[^\d.-]/g, '');
+  if (cleanStr === '' || cleanStr === '-') return null;
+  const num = parseFloat(cleanStr);
   return isNaN(num) ? null : num;
 };
 
@@ -39,6 +41,7 @@ const parseMetricsForRow = (row: string[], metrics: Record<string, MetricConfig>
   return result;
 };
 
+// 鲁棒性 CSV 行解析
 const parseCSVLine = (line: string): string[] => {
   const result: string[] = [];
   let currentVal = '';
@@ -51,12 +54,26 @@ const parseCSVLine = (line: string): string[] => {
         i++;
       } else inQuotes = !inQuotes;
     } else if (char === ',' && !inQuotes) {
-      result.push(currentVal);
+      result.push(currentVal.trim());
+      currentVal = '';
+    } else if (char === '\t' && !inQuotes) { // 兼容制表符分隔
+      result.push(currentVal.trim());
       currentVal = '';
     } else currentVal += char;
   }
-  result.push(currentVal);
+  result.push(currentVal.trim());
   return result;
+};
+
+/**
+ * 核心清洗函数：彻底清除 Excel 可能附带的所有不可见垃圾字符
+ */
+const cleanString = (str: string | undefined): string => {
+  if (!str) return '';
+  return str
+    .replace(/^[\s\uFEFF\xA0\x00-\x1F\x7F-\x9F]+|[\s\uFEFF\xA0\x00-\x1F\x7F-\x9F]+$/g, '') // 清除 BOM、控制字符、空格
+    .replace(/^["']|["']$/g, '') // 移除包裹引号
+    .trim();
 };
 
 const getAnalysisParts = (failures: FailedMetric[], categories: Record<string, string[]>): string[] => {
@@ -90,7 +107,9 @@ const generateDealerAnalysis = (name: string, dealerFailures: FailedMetric[], ma
 };
 
 export const processCSV = (csvContent: string, reportType: ReportType, attribution: AttributionMap, activeManager: string): Record<string, DealerData[]> => {
-  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+  if (!csvContent) return {};
+  
+  const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
   const result: Record<string, DealerData[]> = {};
   const metricsConfig = reportType === 'performance' ? PERFORMANCE_METRICS : OBSERVATION_METRICS;
   const categoriesConfig = reportType === 'performance' ? PERFORMANCE_CATEGORIES : OBSERVATION_CATEGORIES;
@@ -98,11 +117,11 @@ export const processCSV = (csvContent: string, reportType: ReportType, attributi
   const rawDealerMap: Record<string, string[][]> = {};
   lines.forEach(line => {
     const row = parseCSVLine(line);
-    const dealerName = row[0]?.trim();
+    const dealerName = cleanString(row[0]);
     if (dealerName && dealerName !== '代理商' && dealerName !== '总计') {
       const attr = attribution[dealerName];
-      // Only process if dealer belongs to the current manager
-      if (attr && attr.businessManager === activeManager) {
+      // 检查该代理商是否归属于当前选中的经理
+      if (attr && cleanString(attr.businessManager) === cleanString(activeManager)) {
         if (!rawDealerMap[dealerName]) rawDealerMap[dealerName] = [];
         rawDealerMap[dealerName].push(row);
       }
@@ -119,19 +138,20 @@ export const processCSV = (csvContent: string, reportType: ReportType, attributi
     let summary: ManagerData | null = null;
     const managers: ManagerData[] = [];
     rows.forEach(row => {
-      const managerName = row[1]?.trim();
+      const managerName = cleanString(row[1]);
       const failures = getFailures(row, metricsConfig);
       const metricValues = parseMetricsForRow(row, metricsConfig);
       const data: ManagerData = { name: managerName, metrics: metricValues, failedMetrics: failures };
-      if (managerName === '小计') summary = data;
-      else if (failures.length > 0) managers.push(data);
+      
+      if (managerName === '小计' || managerName === '合计') summary = data;
+      else if (managerName !== '') managers.push(data);
     });
 
     if (summary) {
       result[attr.city].push({
         name: dName,
         summary: summary,
-        managers: managers,
+        managers: managers.filter(m => m.failedMetrics.length > 0),
         isPassing: (summary as ManagerData).failedMetrics.length === 0,
         dealerFailures: (summary as ManagerData).failedMetrics,
         analysis: generateDealerAnalysis(dName, (summary as ManagerData).failedMetrics, managers, categoriesConfig),
@@ -143,12 +163,16 @@ export const processCSV = (csvContent: string, reportType: ReportType, attributi
 };
 
 export const parseAttributionCSV = (csvContent: string): AttributionMap => {
-  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+  if (!csvContent) return {};
+  // 兼容不同的换行符并过滤空行
+  const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
   const map: AttributionMap = {};
   lines.forEach((line, index) => {
-    // Basic CSV split, skipping header
-    if (index === 0) return;
-    const parts = line.split(',').map(s => s.trim());
+    // 处理可能存在的分隔符问题（尝试逗号和制表符）
+    const parts = parseCSVLine(line).map(s => cleanString(s));
+    // 自动跳过表头（如果第一列是“代理商”）
+    if (parts[0] === '代理商' || parts[0] === '代理商名称') return;
+
     if (parts.length >= 3) {
       const [name, city, manager] = parts;
       if (name && city && manager) {
