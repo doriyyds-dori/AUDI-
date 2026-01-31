@@ -167,7 +167,7 @@ export const parseAttributionCSV = (csvContent: string): AttributionMap => {
   // 兼容不同的换行符并过滤空行
   const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
   const map: AttributionMap = {};
-  lines.forEach((line, index) => {
+  lines.forEach((line) => {
     // 处理可能存在的分隔符问题（尝试逗号和制表符）
     const parts = parseCSVLine(line).map(s => cleanString(s));
     // 自动跳过表头（如果第一列是“代理商”）
