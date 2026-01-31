@@ -1,10 +1,10 @@
 import React from 'react';
-import { City, DealerData, ReportType } from '../types';
+import { DealerData, ReportType } from '../types';
 import ReportHeader from './ReportHeader';
 import DealerCard from './DealerCard';
 
 interface ReportViewProps {
-  city: City;
+  city: string;
   data: DealerData[];
   startDate: string;
   endDate: string;
@@ -17,10 +17,6 @@ const ReportView: React.FC<ReportViewProps> = ({ city, data, startDate, endDate,
 
   return (
     <div className="overflow-auto shadow-2xl rounded-lg max-w-3xl mx-auto my-8 border border-gray-200">
-      {/* 
-        The fixed width container is critical for html2canvas consistency.
-        Using bg-slate-100 for a slight contrast from the white cards.
-      */}
       <div 
         ref={reportRef} 
         className="bg-[#F1F3F5] min-h-[600px] w-[600px] mx-auto text-left relative"
@@ -32,7 +28,7 @@ const ReportView: React.FC<ReportViewProps> = ({ city, data, startDate, endDate,
           {data.length === 0 ? (
              <div className="text-center text-gray-400 py-20 flex flex-col items-center">
                <div className="w-12 h-1 bg-gray-200 rounded mb-2"></div>
-               <p className="text-sm">暂无该城市数据</p>
+               <p className="text-sm font-medium">暂无该区域数据</p>
              </div>
           ) : (
             data.map((dealer, idx) => (

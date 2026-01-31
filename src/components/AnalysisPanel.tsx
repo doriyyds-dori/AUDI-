@@ -1,9 +1,9 @@
 import React from 'react';
-import { City, DealerData, ReportType } from '../types';
+import { DealerData, ReportType } from '../types';
 import { Copy, Check } from 'lucide-react';
 
 interface AnalysisPanelProps {
-  city: City;
+  city: string;
   data: DealerData[];
   startDate: string;
   endDate: string;
@@ -13,7 +13,6 @@ interface AnalysisPanelProps {
 const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, endDate, reportType }) => {
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
 
-  // Helper to format date from YYYY-MM-DD to M/D
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -29,13 +28,10 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const formattedEnd = formatDate(endDate);
   const dateRangeStr = startDate === endDate ? formattedStart : `${formattedStart}-${formattedEnd}`;
 
-  // Generate the dynamic title based on report type
   const typeLabel = reportType === 'performance' ? '考核数据' : '观察数据';
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
-  // Robust copy function that works in both HTTPS and HTTP
   const copyToClipboard = async (text: string): Promise<boolean> => {
-    // 1. Try Modern API (HTTPS / Localhost)
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
@@ -45,26 +41,20 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
       console.warn('Clipboard API failed, trying fallback...', err);
     }
 
-    // 2. Fallback for HTTP (Legacy method)
     try {
       const textArea = document.createElement("textarea");
       textArea.value = text;
-      
-      // Ensure it's not visible but part of DOM
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
       textArea.style.opacity = "0";
-      
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      
       const successful = document.execCommand('copy');
       document.body.removeChild(textArea);
       return successful;
     } catch (err) {
-      console.error('Fallback copy failed', err);
       return false;
     }
   };
@@ -74,22 +64,16 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
     if (success) {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
-    } else {
-      alert("复制失败，请尝试手动复制。");
     }
   };
 
   const handleCopyAll = async () => {
-    const allContent = data.map(d => d.analysis).join('\n\n'); // Double newline between dealers
-    // Include the title when copying all
+    const allContent = data.map(d => d.analysis).join('\n\n');
     const fullText = `${title}\n\n${allContent}`;
-    
     const success = await copyToClipboard(fullText);
     if (success) {
-      setCopiedIndex(-1); // -1 represents 'All'
+      setCopiedIndex(-1);
       setTimeout(() => setCopiedIndex(null), 2000);
-    } else {
-      alert("复制失败，请尝试手动复制。");
     }
   };
 
@@ -121,7 +105,6 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
               <button
                 onClick={() => handleCopy(dealer.analysis, idx)}
                 className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Copy line"
               >
                 {copiedIndex === idx ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
               </button>

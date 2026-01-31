@@ -1,8 +1,3 @@
-export enum City {
-  Chengdu = '成都',
-  Xian = '西安',
-}
-
 export type FormatType = 'percent' | 'integer' | 'float';
 export type ReportType = 'performance' | 'observation';
 
@@ -30,14 +25,25 @@ export interface FailedMetric {
 
 export interface DealerData {
   name: string;
-  summary: ManagerData | null; // The '小计' row
-  managers: ManagerData[]; // The individual rows
+  summary: ManagerData | null;
+  managers: ManagerData[];
   isPassing: boolean;
   dealerFailures: FailedMetric[];
-  analysis: string; // New field for text summary
+  analysis: string;
 }
 
-export interface ReportData {
-  city: City;
-  dealers: DealerData[];
+// Support dynamic cities from CSV
+export interface DealerAttribution {
+  dealerName: string;
+  city: string;
+  businessManager: string;
+}
+
+export type AttributionMap = Record<string, DealerAttribution>;
+
+export interface MultiManagerStorage {
+  [managerName: string]: {
+    performance: string;
+    observation: string;
+  };
 }

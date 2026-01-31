@@ -1,8 +1,11 @@
+
 import React from 'react';
-import { City, ReportType } from '../types';
+// Changed: removed City from imports as it is not exported from types.ts
+import { ReportType } from '../types';
 
 interface ReportHeaderProps {
-  city: City;
+  // Changed: City type replaced with string
+  city: string;
   startDate: string;
   endDate: string;
   reportType: ReportType;

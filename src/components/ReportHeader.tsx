@@ -1,8 +1,8 @@
 import React from 'react';
-import { City, ReportType } from '../types';
+import { ReportType } from '../types';
 
 interface ReportHeaderProps {
-  city: City;
+  city: string;
   startDate: string;
   endDate: string;
   reportType: ReportType;

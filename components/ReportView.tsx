@@ -1,10 +1,13 @@
+
 import React from 'react';
-import { City, DealerData, ReportType } from '../types';
+// Changed: removed City from imports
+import { DealerData, ReportType } from '../types';
 import ReportHeader from './ReportHeader';
 import DealerCard from './DealerCard';
 
 interface ReportViewProps {
-  city: City;
+  // Changed: City type replaced with string
+  city: string;
   data: DealerData[];
   startDate: string;
   endDate: string;
