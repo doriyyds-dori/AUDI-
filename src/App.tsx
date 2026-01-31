@@ -5,7 +5,7 @@ import { DealerData, ReportType, AttributionMap, MultiManagerStorage, DealerAttr
 import ReportView from './components/ReportView';
 import AnalysisPanel from './components/AnalysisPanel';
 import html2canvas from 'html2canvas';
-import { Download, Upload, FileText, Activity, Eye, Settings, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Upload, FileText, Activity, Settings, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
 
 const STORAGE_KEY_ATTRIBUTION = 'audi_dealer_attribution_v3';
 const STORAGE_KEY_MULTI_DATA = 'audi_multi_manager_data_v3';
