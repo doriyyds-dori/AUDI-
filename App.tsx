@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { DEFAULT_PERFORMANCE_CSV, DEFAULT_OBSERVATION_CSV } from './constants';
 import { processCSV, parseAttributionCSV } from './services/dataProcessor';
@@ -31,9 +32,11 @@ const App: React.FC = () => {
   
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const availableManagers = Array.from(new Set(Object.values(attributions).map(a => a.businessManager))).filter(Boolean).sort();
+  // Fix: Add type assertion to Object.values to resolve 'unknown' property access errors
+  const availableManagers = Array.from(new Set((Object.values(attributions) as DealerAttribution[]).map(a => a.businessManager))).filter(Boolean).sort();
   const availableCities = activeManager 
-    ? Array.from(new Set(Object.values(attributions).filter(a => a.businessManager === activeManager).map(a => a.city))).filter(Boolean).sort()
+    // Fix: Add type assertion to Object.values to resolve 'unknown' property access errors
+    ? Array.from(new Set((Object.values(attributions) as DealerAttribution[]).filter(a => a.businessManager === activeManager).map(a => a.city))).filter(Boolean).sort()
     : [];
 
   const currentCsv = (activeManager && multiData[activeManager]) 

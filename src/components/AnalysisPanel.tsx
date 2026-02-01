@@ -31,50 +31,67 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const typeLabel = reportType === 'performance' ? '考核数据' : '观察数据';
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
-  const copyToClipboard = async (text: string): Promise<boolean> => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      }
-    } catch (err) {
-      console.warn('Clipboard API failed, trying fallback...', err);
+  /**
+   * 极强力复制工具：兼容 HTTP 和 HTTPS 环境
+   */
+  const executeCopy = (text: string, onSuccess: () => void) => {
+    // 1. 如果是 HTTPS 环境且支持现代 API
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text)
+        .then(() => onSuccess())
+        .catch(() => fallbackCopy(text, onSuccess));
+    } else {
+      // 2. 如果是 HTTP 环境（如群晖本地访问），必须使用同步方案
+      fallbackCopy(text, onSuccess);
     }
+  };
 
+  /**
+   * 同步降级方案：解决 HTTP 环境下 API 禁用的问题
+   */
+  const fallbackCopy = (text: string, onSuccess: () => void) => {
     try {
       const textArea = document.createElement("textarea");
       textArea.value = text;
+      
+      // 样式确保它在屏幕外但不被隐藏（隐藏会导致复制失败）
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
       textArea.style.opacity = "0";
+      
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
+      
       const successful = document.execCommand('copy');
       document.body.removeChild(textArea);
-      return successful;
+      
+      if (successful) {
+        onSuccess();
+      } else {
+        alert("浏览器限制了自动复制，请手动选择文字复制。");
+      }
     } catch (err) {
-      return false;
+      console.error('Fallback copy error:', err);
+      alert("复制功能在当前浏览器环境中不可用。");
     }
   };
 
-  const handleCopy = async (text: string, index: number) => {
-    const success = await copyToClipboard(text);
-    if (success) {
+  const handleCopy = (text: string, index: number) => {
+    executeCopy(text, () => {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
-    }
+    });
   };
 
-  const handleCopyAll = async () => {
+  const handleCopyAll = () => {
     const allContent = data.map(d => d.analysis).join('\n\n');
     const fullText = `${title}\n\n${allContent}`;
-    const success = await copyToClipboard(fullText);
-    if (success) {
+    executeCopy(fullText, () => {
       setCopiedIndex(-1);
       setTimeout(() => setCopiedIndex(null), 2000);
-    }
+    });
   };
 
   if (data.length === 0) return null;
@@ -99,12 +116,13 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
         <div className="divide-y divide-gray-100">
           {data.map((dealer, idx) => (
             <div key={idx} className="p-4 hover:bg-gray-50 transition-colors group relative">
-              <p className="text-gray-800 text-sm leading-relaxed pr-8 whitespace-pre-line">
+              <p className="text-gray-800 text-sm leading-relaxed pr-10 whitespace-pre-line">
                 {dealer.analysis}
               </p>
               <button
                 onClick={() => handleCopy(dealer.analysis, idx)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="复制此行"
               >
                 {copiedIndex === idx ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
               </button>
