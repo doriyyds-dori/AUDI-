@@ -32,26 +32,6 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
   /**
-   * 终极复制逻辑
-   */
-  const executeCopy = (text: string, index: number) => {
-    const onSuccess = () => {
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex(null), 2000);
-    };
-
-    // 1. 尝试现代 API (仅在 HTTPS 下有效)
-    if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(onSuccess)
-        .catch(() => tryFallback(text, onSuccess));
-    } else {
-      // 2. HTTP 环境下直接尝试同步降级方案
-      tryFallback(text, onSuccess);
-    }
-  };
-
-  /**
    * 降级方案：execCommand + 手动 Prompt 保底
    */
   const tryFallback = (text: string, callback: () => void) => {
@@ -59,43 +39,51 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
     let successful = false;
 
     try {
-      // 创建隐藏的文本域
       textArea = document.createElement("textarea");
       textArea.value = text;
-      
-      // 样式确保其在视图内但不可见，增加选中成功的概率
+      // 必须让元素在 DOM 中可见（但视觉不可见）才能被选中
       textArea.style.position = "fixed";
-      textArea.style.left = "0";
+      textArea.style.left = "-9999px";
       textArea.style.top = "0";
-      textArea.style.opacity = "0.01";
-      textArea.style.width = "100px";
-      textArea.style.height = "100px";
       textArea.setAttribute('readonly', '');
-      
       document.body.appendChild(textArea);
       
       textArea.focus();
       textArea.select();
-      textArea.setSelectionRange(0, textArea.value.length);
       
-      // 执行复制
       successful = document.execCommand('copy');
-      
       if (successful) {
         callback();
       }
     } catch (err) {
-      console.error('execCommand Error:', err);
+      console.error('Fallback copy failed:', err);
     } finally {
-      if (textArea) {
-        document.body.removeChild(textArea);
-      }
+      if (textArea) document.body.removeChild(textArea);
     }
 
-    // 3. 如果 execCommand 失败（在 HTTP + 移动端很常见），使用 Prompt 弹窗保底
+    // 如果自动复制失败，弹出保底对话框
     if (!successful) {
-      // 这是一个 100% 成功的方案，因为它调用了系统原生的对话框
-      window.prompt("由于浏览器安全限制，无法自动写入剪贴板。\n请按下 Ctrl+C (或长按手机屏幕) 复制下方内容：", text);
+      window.prompt("当前环境禁止自动写入剪贴板，请手动复制：", text);
+    }
+  };
+
+  /**
+   * 终极复制入口
+   */
+  const executeCopy = (text: string, index: number) => {
+    const onSuccess = () => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    // 只有在 HTTPS 或 Localhost 且 API 可用时才使用新 API
+    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text)
+        .then(onSuccess)
+        .catch(() => tryFallback(text, onSuccess));
+    } else {
+      // HTTP 环境直接降级
+      tryFallback(text, onSuccess);
     }
   };
 
@@ -112,16 +100,16 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   if (data.length === 0) return null;
 
   return (
-    <div className="max-w-2xl mx-auto mt-8 mb-12">
+    <div className="max-w-2xl mx-auto mt-8 mb-12 px-4 md:px-0">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="font-bold text-gray-700 flex items-center">
-            <span className="w-2 h-6 bg-purple-700 rounded-full mr-2"></span>
+          <h3 className="font-bold text-gray-700 flex items-center text-sm md:text-base">
+            <span className="w-1.5 h-5 bg-purple-700 rounded-full mr-2 shrink-0"></span>
             {title}
           </h3>
           <button
             onClick={handleCopyAll}
-            className="text-xs font-medium px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-colors text-gray-600 active:scale-95"
+            className="shrink-0 text-[10px] md:text-xs font-bold px-2 md:px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-all text-gray-600 active:scale-95 shadow-sm"
           >
             {copiedIndex === -1 ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
             {copiedIndex === -1 ? "已复制全部" : "复制全部"}
@@ -136,18 +124,20 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
               </p>
               <button
                 onClick={() => handleCopy(dealer.analysis, idx)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity active:scale-90"
-                title="复制此行"
+                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity active:scale-90"
               >
-                {copiedIndex === idx ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+                {copiedIndex === idx ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
               </button>
             </div>
           ))}
         </div>
       </div>
-      <p className="mt-4 text-[10px] text-gray-400 text-center">
-        提示：若无法自动复制，请尝试使用 HTTPS 访问或在弹出框中手动复制。
-      </p>
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <p className="text-[10px] text-gray-400 text-center">
+          提示：若无法自动复制，请在弹出框中手动复制。
+        </p>
+        <span className="text-[8px] text-gray-300 font-mono">v2.6.2 (HTTP FIX)</span>
+      </div>
     </div>
   );
 };
