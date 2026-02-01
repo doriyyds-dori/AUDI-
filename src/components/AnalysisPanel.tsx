@@ -32,66 +32,81 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
   /**
-   * 极强力复制工具：兼容 HTTP 和 HTTPS 环境
+   * 核心复制函数：针对群晖 HTTP 访问环境优化的同步复制
    */
-  const executeCopy = (text: string, onSuccess: () => void) => {
-    // 1. 如果是 HTTPS 环境且支持现代 API
-    if (navigator.clipboard && window.isSecureContext) {
+  const performCopy = (text: string, index: number) => {
+    const onSuccess = () => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    // 1. 尝试现代 API (仅在 HTTPS 或 localhost 启用)
+    if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
-        .then(() => onSuccess())
+        .then(onSuccess)
         .catch(() => fallbackCopy(text, onSuccess));
     } else {
-      // 2. 如果是 HTTP 环境（如群晖本地访问），必须使用同步方案
+      // 2. 针对 HTTP 环境（群晖 IP 访问），直接使用同步 fallback
       fallbackCopy(text, onSuccess);
     }
   };
 
   /**
-   * 同步降级方案：解决 HTTP 环境下 API 禁用的问题
+   * 同步降级方案：这是在非安全环境下唯一可靠的复制方式
    */
-  const fallbackCopy = (text: string, onSuccess: () => void) => {
+  const fallbackCopy = (text: string, callback: () => void) => {
+    let textArea: HTMLTextAreaElement | null = null;
     try {
-      const textArea = document.createElement("textarea");
+      textArea = document.createElement("textarea");
       textArea.value = text;
       
-      // 样式确保它在屏幕外但不被隐藏（隐藏会导致复制失败）
+      // 必须设置的样式，确保在文档流中但对用户不可见
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
-      textArea.style.opacity = "0";
+      textArea.style.width = "2em";
+      textArea.style.height = "2em";
+      textArea.style.padding = "0";
+      textArea.style.border = "none";
+      textArea.style.outline = "none";
+      textArea.style.boxShadow = "none";
+      textArea.style.background = "transparent";
+      
+      // 移动端兼容性属性
+      textArea.setAttribute('readonly', '');
       
       document.body.appendChild(textArea);
+      
+      // 选中逻辑
       textArea.focus();
+      textArea.setSelectionRange(0, textArea.value.length);
       textArea.select();
       
       const successful = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
       if (successful) {
-        onSuccess();
+        callback();
       } else {
-        alert("浏览器限制了自动复制，请手动选择文字复制。");
+        throw new Error('execCommand returned false');
       }
     } catch (err) {
       console.error('Fallback copy error:', err);
-      alert("复制功能在当前浏览器环境中不可用。");
+      // 如果自动复制完全被拦截，至少给个弹窗让用户知道出了什么问题
+      alert("复制失败。请检查：\n1. 浏览器是否禁用了剪贴板访问\n2. 建议尝试使用 HTTPS 访问群晖");
+    } finally {
+      if (textArea && textArea.parentNode) {
+        document.body.removeChild(textArea);
+      }
     }
   };
 
   const handleCopy = (text: string, index: number) => {
-    executeCopy(text, () => {
-      setCopiedIndex(index);
-      setTimeout(() => setCopiedIndex(null), 2000);
-    });
+    performCopy(text, index);
   };
 
   const handleCopyAll = () => {
     const allContent = data.map(d => d.analysis).join('\n\n');
     const fullText = `${title}\n\n${allContent}`;
-    executeCopy(fullText, () => {
-      setCopiedIndex(-1);
-      setTimeout(() => setCopiedIndex(null), 2000);
-    });
+    performCopy(fullText, -1);
   };
 
   if (data.length === 0) return null;
