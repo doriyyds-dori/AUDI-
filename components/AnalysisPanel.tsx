@@ -1,11 +1,8 @@
-
 import React from 'react';
-// Changed: removed City from imports
 import { DealerData, ReportType } from '../types';
 import { Copy, Check } from 'lucide-react';
 
 interface AnalysisPanelProps {
-  // Changed: City type replaced with string
   city: string;
   data: DealerData[];
   startDate: string;
@@ -16,7 +13,6 @@ interface AnalysisPanelProps {
 const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, endDate, reportType }) => {
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
 
-  // Helper to format date from YYYY-MM-DD to M/D
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -32,39 +28,84 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const formattedEnd = formatDate(endDate);
   const dateRangeStr = startDate === endDate ? formattedStart : `${formattedStart}-${formattedEnd}`;
 
-  // Generate the dynamic title based on report type
   const typeLabel = reportType === 'performance' ? '考核数据' : '观察数据';
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
+  /**
+   * 降级方案：execCommand + 手动 Prompt 保底
+   */
+  const tryFallback = (text: string, callback: () => void) => {
+    let textArea: HTMLTextAreaElement | null = null;
+    let successful = false;
+
+    try {
+      textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      textArea.setAttribute('readonly', '');
+      document.body.appendChild(textArea);
+      
+      textArea.focus();
+      textArea.select();
+      
+      successful = document.execCommand('copy');
+      if (successful) {
+        callback();
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+    } finally {
+      if (textArea) document.body.removeChild(textArea);
+    }
+
+    if (!successful) {
+      window.prompt("当前环境禁止自动写入剪贴板，请按下 Ctrl+C 手动复制：", text);
+    }
+  };
+
+  /**
+   * 终极复制入口
+   */
+  const executeCopy = (text: string, index: number) => {
+    const onSuccess = () => {
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text)
+        .then(onSuccess)
+        .catch(() => tryFallback(text, onSuccess));
+    } else {
+      tryFallback(text, onSuccess);
+    }
+  };
+
   const handleCopy = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000);
+    executeCopy(text, index);
   };
 
   const handleCopyAll = () => {
-    const allContent = data.map(d => d.analysis).join('\n\n'); // Double newline between dealers
-    // Include the title when copying all
+    const allContent = data.map(d => d.analysis).join('\n\n');
     const fullText = `${title}\n\n${allContent}`;
-    
-    navigator.clipboard.writeText(fullText);
-    setCopiedIndex(-1); // -1 represents 'All'
-    setTimeout(() => setCopiedIndex(null), 2000);
+    executeCopy(fullText, -1);
   };
 
   if (data.length === 0) return null;
 
   return (
-    <div className="max-w-2xl mx-auto mt-8 mb-12">
+    <div className="max-w-2xl mx-auto mt-8 mb-12 px-4 md:px-0">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="font-bold text-gray-700 flex items-center">
-            <span className="w-2 h-6 bg-purple-700 rounded-full mr-2"></span>
+          <h3 className="font-bold text-gray-700 flex items-center text-sm md:text-base">
+            <span className="w-1.5 h-5 bg-purple-700 rounded-full mr-2 shrink-0"></span>
             {title}
           </h3>
           <button
             onClick={handleCopyAll}
-            className="text-xs font-medium px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-colors text-gray-600"
+            className="shrink-0 text-[10px] md:text-xs font-bold px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-all text-gray-600 active:scale-95 shadow-sm"
           >
             {copiedIndex === -1 ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
             {copiedIndex === -1 ? "已复制全部" : "复制全部"}
@@ -74,19 +115,24 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
         <div className="divide-y divide-gray-100">
           {data.map((dealer, idx) => (
             <div key={idx} className="p-4 hover:bg-gray-50 transition-colors group relative">
-              <p className="text-gray-800 text-sm leading-relaxed pr-8 whitespace-pre-line">
+              <p className="text-gray-800 text-sm leading-relaxed pr-10 whitespace-pre-line">
                 {dealer.analysis}
               </p>
               <button
                 onClick={() => handleCopy(dealer.analysis, idx)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Copy line"
+                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity active:scale-90"
               >
-                {copiedIndex === idx ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+                {copiedIndex === idx ? <Check size={18} className="text-green-600" /> : <Copy size={18} />}
               </button>
             </div>
           ))}
         </div>
+      </div>
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <p className="text-[10px] text-gray-400 text-center">
+          提示：若无法自动复制，请在弹出框中手动复制。
+        </p>
+        <span className="text-[8px] text-gray-300 font-mono">v2.6.2 (HTTP FIX)</span>
       </div>
     </div>
   );
