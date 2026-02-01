@@ -1,6 +1,6 @@
 import React from 'react';
 import { DealerData, ReportType } from '../types';
-import { Copy, Check, ExternalLink } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 
 interface AnalysisPanelProps {
   city: string;
