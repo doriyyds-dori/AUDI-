@@ -1,6 +1,6 @@
 import React from 'react';
 import { DealerData, ReportType } from '../types';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, ExternalLink } from 'lucide-react';
 
 interface AnalysisPanelProps {
   city: string;
@@ -32,81 +32,81 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
   const title = `${city}打铁日报${typeLabel} （数据范围：${dateRangeStr}）`;
 
   /**
-   * 核心复制函数：针对群晖 HTTP 访问环境优化的同步复制
+   * 终极复制逻辑
    */
-  const performCopy = (text: string, index: number) => {
+  const executeCopy = (text: string, index: number) => {
     const onSuccess = () => {
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex(null), 2000);
     };
 
-    // 1. 尝试现代 API (仅在 HTTPS 或 localhost 启用)
+    // 1. 尝试现代 API (仅在 HTTPS 下有效)
     if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text)
         .then(onSuccess)
-        .catch(() => fallbackCopy(text, onSuccess));
+        .catch(() => tryFallback(text, onSuccess));
     } else {
-      // 2. 针对 HTTP 环境（群晖 IP 访问），直接使用同步 fallback
-      fallbackCopy(text, onSuccess);
+      // 2. HTTP 环境下直接尝试同步降级方案
+      tryFallback(text, onSuccess);
     }
   };
 
   /**
-   * 同步降级方案：这是在非安全环境下唯一可靠的复制方式
+   * 降级方案：execCommand + 手动 Prompt 保底
    */
-  const fallbackCopy = (text: string, callback: () => void) => {
+  const tryFallback = (text: string, callback: () => void) => {
     let textArea: HTMLTextAreaElement | null = null;
+    let successful = false;
+
     try {
+      // 创建隐藏的文本域
       textArea = document.createElement("textarea");
       textArea.value = text;
       
-      // 必须设置的样式，确保在文档流中但对用户不可见
+      // 样式确保其在视图内但不可见，增加选中成功的概率
       textArea.style.position = "fixed";
-      textArea.style.left = "-9999px";
+      textArea.style.left = "0";
       textArea.style.top = "0";
-      textArea.style.width = "2em";
-      textArea.style.height = "2em";
-      textArea.style.padding = "0";
-      textArea.style.border = "none";
-      textArea.style.outline = "none";
-      textArea.style.boxShadow = "none";
-      textArea.style.background = "transparent";
-      
-      // 移动端兼容性属性
+      textArea.style.opacity = "0.01";
+      textArea.style.width = "100px";
+      textArea.style.height = "100px";
       textArea.setAttribute('readonly', '');
       
       document.body.appendChild(textArea);
       
-      // 选中逻辑
       textArea.focus();
-      textArea.setSelectionRange(0, textArea.value.length);
       textArea.select();
+      textArea.setSelectionRange(0, textArea.value.length);
       
-      const successful = document.execCommand('copy');
+      // 执行复制
+      successful = document.execCommand('copy');
+      
       if (successful) {
         callback();
-      } else {
-        throw new Error('execCommand returned false');
       }
     } catch (err) {
-      console.error('Fallback copy error:', err);
-      // 如果自动复制完全被拦截，至少给个弹窗让用户知道出了什么问题
-      alert("复制失败。请检查：\n1. 浏览器是否禁用了剪贴板访问\n2. 建议尝试使用 HTTPS 访问群晖");
+      console.error('execCommand Error:', err);
     } finally {
-      if (textArea && textArea.parentNode) {
+      if (textArea) {
         document.body.removeChild(textArea);
       }
+    }
+
+    // 3. 如果 execCommand 失败（在 HTTP + 移动端很常见），使用 Prompt 弹窗保底
+    if (!successful) {
+      // 这是一个 100% 成功的方案，因为它调用了系统原生的对话框
+      window.prompt("由于浏览器安全限制，无法自动写入剪贴板。\n请按下 Ctrl+C (或长按手机屏幕) 复制下方内容：", text);
     }
   };
 
   const handleCopy = (text: string, index: number) => {
-    performCopy(text, index);
+    executeCopy(text, index);
   };
 
   const handleCopyAll = () => {
     const allContent = data.map(d => d.analysis).join('\n\n');
     const fullText = `${title}\n\n${allContent}`;
-    performCopy(fullText, -1);
+    executeCopy(fullText, -1);
   };
 
   if (data.length === 0) return null;
@@ -121,7 +121,7 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
           </h3>
           <button
             onClick={handleCopyAll}
-            className="text-xs font-medium px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-colors text-gray-600"
+            className="text-xs font-medium px-3 py-1.5 rounded bg-white border border-gray-300 hover:bg-gray-50 flex items-center gap-1 transition-colors text-gray-600 active:scale-95"
           >
             {copiedIndex === -1 ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
             {copiedIndex === -1 ? "已复制全部" : "复制全部"}
@@ -136,7 +136,7 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
               </p>
               <button
                 onClick={() => handleCopy(dealer.analysis, idx)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-4 right-4 text-gray-400 hover:text-purple-600 p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity active:scale-90"
                 title="复制此行"
               >
                 {copiedIndex === idx ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
@@ -145,6 +145,9 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ city, data, startDate, en
           ))}
         </div>
       </div>
+      <p className="mt-4 text-[10px] text-gray-400 text-center">
+        提示：若无法自动复制，请尝试使用 HTTPS 访问或在弹出框中手动复制。
+      </p>
     </div>
   );
 };
